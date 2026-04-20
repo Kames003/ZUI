@@ -1,0 +1,20 @@
+*.zip
+__pycache__/
+*.pyc
+.DS_Store
+/tmp/
+archive/
+2048_base.ipynb
+PLAN.md
+PROGRESS.md
+results/
+# root-level duplicates (images/ folder is canonical)
+/dashboard.png
+/max_tile_distribution.png
+/move_directions.png
+/score_distribution.png
+/score_progression.png
+/win_loss.png
+/replay_random.gif
+/replay_heuristic.gif
+/replay_expectimax.gif

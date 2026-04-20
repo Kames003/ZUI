@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2048 AI Solvery — ZUI Cvičenie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08080E;
+  --surface: rgba(255,255,255,0.04);
+  --surface2: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08);
+  --primary: #3B82F6;
+  --primary-light: #60A5FA;
+  --cyan: #06B6D4;
+  --purple: #818CF8;
+  --green: #34D399;
+  --yellow: #FBBF24;
+  --red: #F87171;
+  --text: #E2E8F0;
+  --text-muted: #64748B;
+  --text-soft: #94A3B8;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ── BACKGROUND ─────────────────────────────────── */
+.mesh-bg {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+}
+.mesh-blob {
+  position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.12;
+  animation: blobDrift 18s ease-in-out infinite alternate;
+}
+.mesh-blob:nth-child(1) { width: 600px; height: 600px; background: #1D4ED8; top: -10%; left: -10%; animation-delay: 0s; }
+.mesh-blob:nth-child(2) { width: 400px; height: 400px; background: #0E7490; top: 40%; right: -5%; animation-delay: -6s; }
+.mesh-blob:nth-child(3) { width: 350px; height: 350px; background: #4338CA; bottom: -5%; left: 30%; animation-delay: -12s; }
+@keyframes blobDrift { from { transform: translate(0,0) scale(1); } to { transform: translate(40px,30px) scale(1.1); } }
+
+.particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.particle {
+  position: absolute; width: 2px; height: 2px; border-radius: 50%;
+  background: rgba(96,165,250,0.5);
+  animation: particleFloat 20s linear infinite;
+}
+@keyframes particleFloat {
+  0% { transform: translate(0,0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.3; }
+  100% { transform: translate(var(--px,0),var(--py,-120px)); opacity: 0; }
+}
+
+/* ── NAV ─────────────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.85rem 2rem;
+  background: rgba(8,8,14,0.6);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s, background 0.3s;
+}
+nav.scrolled { border-color: var(--border); background: rgba(8,8,14,0.9); }
+.nav-logo { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; font-size: 0.9rem; }
+.nav-logo-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, #1D4ED8, #06B6D4);
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+}
+.nav-links { display: flex; gap: 0.25rem; }
+.nav-link {
+  color: var(--text-soft); text-decoration: none; font-size: 0.8rem; font-weight: 500;
+  padding: 0.35rem 0.75rem; border-radius: 6px; transition: all 0.2s;
+}
+.nav-link:hover, .nav-link.active { color: var(--text); background: var(--surface2); }
+.nav-counter { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.nav-counter span { color: var(--primary-light); }
+
+/* ── SECTIONS ────────────────────────────────────── */
+.section {
+  position: relative; z-index: 1; min-height: 100vh;
+  display: flex; align-items: center; padding: 7rem 2rem 4rem;
+}
+.section-inner { max-width: 1100px; margin: 0 auto; width: 100%; }
+.section-tag {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--primary-light); margin-bottom: 0.6rem;
+}
+.section-title {
+  font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800;
+  letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.75rem;
+}
+.section-subtitle { font-size: 1rem; color: var(--text-soft); max-width: 600px; }
+.section-header { margin-bottom: 2.5rem; }
+.gradient { background: linear-gradient(135deg, #60A5FA, #06B6D4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+/* ── HERO ────────────────────────────────────────── */
+.hero { text-align: center; justify-content: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25);
+  color: var(--primary-light); font-size: 0.78rem; font-weight: 600;
+  padding: 0.4rem 1rem; border-radius: 100px; margin-bottom: 1.5rem;
+}
+.hero-badge-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary-light); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+.hero-title { font-size: clamp(2.5rem, 7vw, 5rem); font-weight: 900; letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 1.25rem; }
+.hero-subtitle { font-size: 1.1rem; color: var(--text-soft); margin-bottom: 2.5rem; line-height: 1.7; }
+.hero-stats {
+  display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap;
+  padding: 1.75rem 2.5rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  backdrop-filter: blur(12px); display: inline-flex;
+}
+.hero-stat-value { font-size: 2rem; font-weight: 800; letter-spacing: -0.03em; }
+.hero-stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; margin-top: 0.15rem; }
+.scroll-hint { margin-top: 3rem; color: var(--text-muted); font-size: 0.8rem; animation: bounce 2s infinite; }
+@keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+
+/* ── CARDS ───────────────────────────────────────── */
+.grid { display: grid; gap: 1.25rem; }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .grid-3, .grid-2, .grid-4 { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  padding: 1.5rem; transition: transform 0.3s, border-color 0.3s, background 0.3s;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.2s;
+}
+.card.visible { opacity: 1; transform: translateY(0); }
+.card:hover { border-color: rgba(96,165,250,0.25); background: rgba(255,255,255,0.06); }
+.card-icon {
+  width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center;
+  justify-content: center; font-size: 1.2rem; margin-bottom: 1rem;
+  background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+}
+.card-icon.cyan { background: linear-gradient(135deg, #0E7490, #06B6D4); }
+.card-icon.purple { background: linear-gradient(135deg, #4338CA, #818CF8); }
+.card-icon.green { background: linear-gradient(135deg, #065F46, #34D399); }
+.card-icon.yellow { background: linear-gradient(135deg, #92400E, #FBBF24); }
+.card-icon.red { background: linear-gradient(135deg, #991B1B, #F87171); }
+.card-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+.card-desc { font-size: 0.85rem; color: var(--text-soft); line-height: 1.6; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+.tag {
+  font-size: 0.7rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px;
+  background: rgba(59,130,246,0.12); color: var(--primary-light); border: 1px solid rgba(59,130,246,0.2);
+}
+.tag.cyan { background: rgba(6,182,212,0.12); color: #67E8F9; border-color: rgba(6,182,212,0.2); }
+.tag.purple { background: rgba(129,140,248,0.12); color: #A5B4FC; border-color: rgba(129,140,248,0.2); }
+.tag.green { background: rgba(52,211,153,0.12); color: #6EE7B7; border-color: rgba(52,211,153,0.2); }
+
+/* ── STATS GRID ──────────────────────────────────── */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-top: 2rem; }
+@media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 1.25rem; text-align: center;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.stat-card.visible { opacity: 1; transform: translateY(0); }
+.stat-value { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.03em; color: var(--primary-light); }
+.stat-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+/* ── FLOW DIAGRAM ────────────────────────────────── */
+.flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; justify-content: center; margin: 2rem 0; }
+.flow-node {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 1rem 1.25rem; min-width: 110px; text-align: center;
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.flow-node.visible { opacity: 1; transform: translateY(0); }
+.flow-node-icon { font-size: 1.4rem; }
+.flow-node-label { font-size: 0.8rem; font-weight: 700; }
+.flow-node-sub { font-size: 0.68rem; color: var(--text-muted); }
+.flow-arrow {
+  display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+  padding: 0 0.5rem; opacity: 0;
+  transition: opacity 0.5s ease 0.2s;
+}
+.flow-arrow.visible { opacity: 1; }
+.flow-arrow-line {
+  width: 40px; height: 2px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.4), rgba(6,182,212,0.4));
+  position: relative; overflow: hidden;
+}
+.flow-arrow-dot {
+  position: absolute; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--primary-light); top: -2px;
+  animation: dotFlow 1.8s linear infinite;
+}
+.flow-arrow-label { font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; }
+@keyframes dotFlow { 0% { left: -6px; } 100% { left: 100%; } }
+
+/* ── PROGRESS BARS ───────────────────────────────── */
+.progress-section { display: flex; flex-direction: column; gap: 0.85rem; margin-top: 1rem; }
+.progress-item { }
+.progress-header { display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.35rem; }
+.progress-label { color: var(--text-soft); font-weight: 500; }
+.progress-value { color: var(--primary-light); font-weight: 700; }
+.progress-bar { height: 6px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; width: 0; transition: width 1.2s cubic-bezier(0.4,0,0.2,1); background: linear-gradient(90deg, #3B82F6, #06B6D4); }
+
+/* ── H-BAR CHART ─────────────────────────────────── */
+.h-bar-chart { display: flex; flex-direction: column; gap: 0.7rem; }
+.h-bar-item { display: flex; align-items: center; gap: 0.75rem; }
+.h-bar-label { font-size: 0.78rem; color: var(--text-soft); width: 90px; text-align: right; flex-shrink: 0; }
+.h-bar-track { flex: 1; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+.h-bar-fill { height: 100%; width: 0; border-radius: 4px; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+.h-bar-value { font-size: 0.75rem; font-weight: 700; color: var(--primary-light); width: 55px; flex-shrink: 0; }
+
+/* ── CODE BLOCK ──────────────────────────────────── */
+.code-block {
+  background: #0D1117; border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07); font-family: 'SF Mono','Fira Code',monospace;
+}
+.code-header {
+  background: rgba(255,255,255,0.04); padding: 0.5rem 1rem;
+  display: flex; align-items: center; gap: 0.4rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.code-dot { width: 8px; height: 8px; border-radius: 50%; }
+.code-title { color: var(--text-muted); font-size: 0.7rem; margin-left: 0.5rem; }
+.code-body { padding: 1rem 1.25rem; font-size: 0.75rem; line-height: 1.65; overflow-x: auto; white-space: pre; color: #C9D1D9; }
+.kw { color: #FF7B72; } .fn { color: #D2A8FF; } .str { color: #A5D6FF; }
+.cm { color: #8B949E; font-style: italic; } .num { color: #79C0FF; } .var { color: #FFA657; }
+.code-line { display: block; opacity: 0; transform: translateX(-8px); transition: opacity 0.3s, transform 0.3s; }
+.code-line.visible { opacity: 1; transform: translateX(0); }
+
+/* ── PIPELINE ────────────────────────────────────── */
+.pipeline { display: flex; flex-direction: column; gap: 0; }
+.pipe-step {
+  display: flex; align-items: flex-start; gap: 0.85rem; padding: 0.75rem 0;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.pipe-step.visible { opacity: 1; transform: translateY(0); }
+.pipe-icon {
+  width: 38px; height: 38px; border-radius: 10px; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem;
+}
+.pipe-title { font-size: 0.85rem; font-weight: 700; margin-bottom: 0.15rem; }
+.pipe-data { font-size: 0.73rem; color: var(--text-muted); font-family: 'SF Mono',monospace; }
+.pipe-tag { color: var(--primary-light); font-weight: 600; }
+.pipe-connector { width: 2px; height: 20px; background: var(--border); margin-left: 18px; position: relative; }
+.pipe-connector-fill { width: 100%; height: 0; background: linear-gradient(180deg, #3B82F6, #06B6D4); transition: height 0.4s ease; }
+.pipe-step.visible + .pipe-connector .pipe-connector-fill { height: 100%; }
+
+/* ── SCREENSHOT CONTAINER ────────────────────────── */
+.screenshot-container {
+  background: rgba(13,17,23,0.95); border: 1px solid var(--border); border-radius: 20px;
+  overflow: hidden;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.screenshot-container.visible { opacity: 1; transform: translateY(0); }
+.screenshot-bar {
+  background: rgba(255,255,255,0.04); padding: 0.6rem 1rem;
+  display: flex; align-items: center; gap: 0.4rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sc-dot { width: 10px; height: 10px; border-radius: 50%; }
+.sc-title { font-size: 0.72rem; color: var(--text-muted); margin-left: 0.5rem; }
+.screenshot-body { padding: 0; position: relative; }
+.screenshot-body img { width: 100%; display: block; }
+.caption-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 1rem; border-top: 1px solid rgba(255,255,255,0.05); }
+.pill {
+  font-size: 0.68rem; font-weight: 600; padding: 0.25rem 0.65rem; border-radius: 100px;
+  background: rgba(59,130,246,0.12); color: var(--primary-light); border: 1px solid rgba(59,130,246,0.2);
+}
+
+/* ── COMPARISON TABLE ────────────────────────────── */
+.comparison-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.comparison-table th {
+  padding: 0.75rem 1rem; background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border); text-align: left; font-weight: 700;
+  color: var(--text-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.comparison-table td { padding: 0.65rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.comparison-table tr:last-child td { border-bottom: none; }
+.comparison-table .hl { background: rgba(59,130,246,0.08); }
+.comparison-table .hl th { color: var(--primary-light); }
+.comparison-table .check { color: var(--green); font-weight: 700; }
+.comparison-table .cross { color: var(--red); }
+.comparison-table .best { color: var(--green); font-weight: 800; }
+.comparison-table .med { color: var(--yellow); }
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.table-wrap.visible { opacity: 1; transform: translateY(0); }
+.table-title { padding: 0.85rem 1rem; font-size: 0.8rem; font-weight: 700; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+
+/* ── TIMELINE ────────────────────────────────────── */
+.timeline { position: relative; padding: 0 1rem; overflow-x: auto; }
+.timeline-track { display: flex; align-items: flex-start; position: relative; padding-bottom: 1rem; min-width: 700px; }
+.timeline-line {
+  position: absolute; top: 22px; left: 0; right: 0; height: 2px;
+  background: rgba(255,255,255,0.06);
+}
+.timeline-line-fill {
+  height: 100%; width: 0; background: linear-gradient(90deg, #3B82F6, #06B6D4);
+  transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+}
+.timeline-nodes { display: flex; justify-content: space-between; width: 100%; position: relative; }
+.timeline-node { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; flex: 1; padding-top: 0; }
+.timeline-node-dot {
+  width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(59,130,246,0.3);
+  background: var(--bg); margin-top: 14px;
+  transition: border-color 0.4s, background 0.4s, transform 0.4s;
+}
+.timeline-node.active .timeline-node-dot { border-color: var(--primary-light); background: var(--primary-light); transform: scale(1.2); box-shadow: 0 0 12px rgba(96,165,250,0.5); }
+.timeline-node-date { font-size: 0.65rem; color: var(--text-muted); font-weight: 600; text-align: center; }
+.timeline-node-label { font-size: 0.72rem; color: var(--text-soft); text-align: center; margin-top: 0.5rem; padding: 0 0.25rem; line-height: 1.4; }
+.timeline-node.active .timeline-node-label { color: var(--primary-light); }
+
+/* ── LESSON CARDS ────────────────────────────────── */
+.lessons-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
+@media (max-width: 800px) { .lessons-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 500px) { .lessons-grid { grid-template-columns: 1fr; } }
+.lesson-card {
+  background: var(--surface); border: 1px solid rgba(52,211,153,0.15); border-radius: 16px;
+  padding: 1.25rem; border-left: 3px solid var(--green);
+  opacity: 0; transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.lesson-card.visible { opacity: 1; transform: translateY(0); }
+.lesson-card.warn { border-left-color: var(--yellow); border-color: rgba(251,191,36,0.15); }
+.lesson-card.info { border-left-color: var(--primary); border-color: rgba(59,130,246,0.15); }
+.lesson-card.danger { border-left-color: var(--red); border-color: rgba(248,113,113,0.15); }
+.lesson-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--green); margin-bottom: 0.4rem; }
+.lesson-card.warn .lesson-label { color: var(--yellow); }
+.lesson-card.info .lesson-label { color: var(--primary-light); }
+.lesson-card.danger .lesson-label { color: var(--red); }
+.lesson-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; }
+.lesson-desc { font-size: 0.78rem; color: var(--text-soft); line-height: 1.5; }
+
+/* ── ARCH LAYERS ─────────────────────────────────── */
+.arch-layers { display: flex; flex-direction: column; gap: 0.65rem; }
+.arch-layer {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 0.85rem 1.25rem;
+  opacity: 0; transform: translateX(-16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.arch-layer.visible { opacity: 1; transform: translateX(0); }
+.arch-layer-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1rem; }
+.arch-layer-name { font-size: 0.85rem; font-weight: 700; width: 130px; flex-shrink: 0; }
+.arch-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.arch-badge {
+  font-size: 0.68rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 6px;
+  background: rgba(59,130,246,0.1); color: var(--primary-light); border: 1px solid rgba(59,130,246,0.18);
+}
+.arch-badge.cy { background: rgba(6,182,212,0.1); color: #67E8F9; border-color: rgba(6,182,212,0.18); }
+.arch-badge.pu { background: rgba(129,140,248,0.1); color: #A5B4FC; border-color: rgba(129,140,248,0.18); }
+.arch-badge.gr { background: rgba(52,211,153,0.1); color: #6EE7B7; border-color: rgba(52,211,153,0.18); }
+
+/* ── FINAL CARD ──────────────────────────────────── */
+.final-card {
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(6,182,212,0.08));
+  border: 1px solid rgba(96,165,250,0.25); border-radius: 24px;
+  padding: 2.5rem; text-align: center; margin-top: 2rem;
+  opacity: 0; transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.final-card.visible { opacity: 1; transform: translateY(0); }
+.final-icon { font-size: 3rem; margin-bottom: 1rem; }
+.final-title { font-size: 1.4rem; font-weight: 800; margin-bottom: 0.75rem; }
+.final-sub { color: var(--text-soft); font-size: 0.9rem; max-width: 550px; margin: 0 auto 1.5rem; }
+.final-divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+.final-stats { display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.final-stat-val { font-size: 1.6rem; font-weight: 800; color: var(--primary-light); }
+.final-stat-lbl { font-size: 0.72rem; color: var(--text-muted); }
+.final-badges { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.6rem; }
+.final-badge {
+  font-size: 0.78rem; font-weight: 600; padding: 0.4rem 0.9rem; border-radius: 100px;
+  background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); color: var(--primary-light);
+}
+
+/* ── SCROLL ANIMATE ──────────────────────────────── */
+.animate { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.animate.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="mesh-bg">
+  <div class="mesh-blob"></div><div class="mesh-blob"></div><div class="mesh-blob"></div>
+</div>
+<div class="particles" id="particles"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-icon">🎮</div>
+    2048 AI
+  </div>
+  <div class="nav-links">
+    <a href="#hero" class="nav-link active">Úvod</a>
+    <a href="#prehled" class="nav-link">Prehľad</a>
+    <a href="#teoria" class="nav-link">Teória</a>
+    <a href="#implementacia" class="nav-link">Impl.</a>
+    <a href="#vysledky" class="nav-link">Výsledky</a>
+    <a href="#grafy" class="nav-link">Grafy</a>
+    <a href="#vyvoj" class="nav-link">Vývoj</a>
+    <a href="#vyzvy" class="nav-link">Výzvy</a>
+    <a href="#zaver" class="nav-link">Záver</a>
+  </div>
+  <div class="nav-counter"><span id="slideNum">01</span> / 09</div>
+</nav>
+
+<!-- ═══ SLIDE 1: HERO ═══════════════════════════════════════════════════════ -->
+<section class="section hero" id="hero" data-slide="1">
+  <div class="section-inner">
+    <div class="hero-badge"><div class="hero-badge-dot"></div> ZUI Cvičenie 2026 — VŠB-TUO FEI</div>
+    <h1 class="hero-title"><span class="gradient">2048 AI</span><br>Solvery</h1>
+    <p class="hero-subtitle" id="heroSub">Tri AI solvery pre hru 2048 — od náhodných ťahov po ExpectiMax.<br>Kompletná štatistika, grafy, animácie a iteratívny tuning.</p>
+    <div class="hero-stats">
+      <div style="text-align:center">
+        <div class="hero-stat-value gradient" data-count="3">0</div>
+        <div class="hero-stat-label">AI Solvery</div>
+      </div>
+      <div style="text-align:center">
+        <div class="hero-stat-value" style="color:#60A5FA" data-count="30">0</div>
+        <div class="hero-stat-label">Hier per solver</div>
+      </div>
+      <div style="text-align:center">
+        <div class="hero-stat-value" style="color:#34D399" data-count="63">0</div>
+        <div class="hero-stat-label">% Win rate</div>
+      </div>
+      <div style="text-align:center">
+        <div class="hero-stat-value" style="color:#FBBF24" data-count="42">0</div>
+        <div class="hero-stat-label">Unit testov</div>
+      </div>
+    </div>
+    <div class="scroll-hint">↓ scrolluj nadol</div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 2: PREHĽAD ════════════════════════════════════════════════════ -->
+<section class="section" id="prehled" data-slide="2">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">01 / Prehľad projektu</div>
+      <h2 class="section-title">Čo sme vytvorili</h2>
+      <p class="section-subtitle">Reprodukcia hry 2048 s tromi vlastnými AI stratégiami, kompletnou štatistikou a reportom.</p>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="card" style="transition-delay:0s">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">Motivácia</div>
+        <div class="card-desc">Porovnať rôzne úrovne inteligencie — od čistého náhody až po klasickú AI (ExpectiMax) — na rovnakej deterministickej hre. Ukázať, že symbolická AI je legitímna AI.</div>
+      </div>
+      <div class="card" style="transition-delay:0.1s">
+        <div class="card-icon cyan">🤖</div>
+        <div class="card-title">Riešenie</div>
+        <div class="card-desc">Tri solvery: Random (baseline), Greedy Heuristic (1-ply eval), ExpectiMax (hĺbka 3-4, chance nodes). Iteratívny vývoj cez 5 experimentálnych behov a 8 konfigurácií.</div>
+      </div>
+      <div class="card" style="transition-delay:0.2s">
+        <div class="card-icon purple">🏆</div>
+        <div class="card-title">Výsledok</div>
+        <div class="card-desc">ExpectiMax: 63% win rate, avg 17 990 bodov. Kompletné deliverables: Excel štatistika, GIF animácie, PNG grafy, report, Jupyter notebook.</div>
+      </div>
+    </div>
+
+    <div class="stats-grid" id="statsGrid1">
+      <div class="stat-card"><div class="stat-value">17 990</div><div class="stat-label">Avg skóre ExpectiMax</div></div>
+      <div class="stat-card"><div class="stat-value">19/30</div><div class="stat-label">Výhry ExpectiMax</div></div>
+      <div class="stat-card"><div class="stat-value">7 225</div><div class="stat-label">Avg skóre Heuristic</div></div>
+      <div class="stat-card"><div class="stat-value">42/42</div><div class="stat-label">Unit testy OK</div></div>
+    </div>
+
+    <!-- Flow: solvery -->
+    <div style="margin-top:2.5rem">
+      <div class="section-tag" style="margin-bottom:1rem">Spektrum solverov</div>
+      <div class="flow" id="flowSolvers">
+        <div class="flow-node">
+          <div class="flow-node-icon">🎲</div>
+          <div class="flow-node-label">Random</div>
+          <div class="flow-node-sub">Dolná hranica</div>
+        </div>
+        <div class="flow-arrow">
+          <div class="flow-arrow-line"><div class="flow-arrow-dot"></div></div>
+          <div class="flow-arrow-label">+heuristika</div>
+        </div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🧠</div>
+          <div class="flow-node-label">Greedy Heuristic</div>
+          <div class="flow-node-sub">1-ply eval</div>
+        </div>
+        <div class="flow-arrow">
+          <div class="flow-arrow-line"><div class="flow-arrow-dot" style="animation-delay:0.3s"></div></div>
+          <div class="flow-arrow-label">+lookahead</div>
+        </div>
+        <div class="flow-node" style="border-color:rgba(96,165,250,0.3)">
+          <div class="flow-node-icon">🔮</div>
+          <div class="flow-node-label">ExpectiMax</div>
+          <div class="flow-node-sub">Depth 3-4, chance nodes</div>
+        </div>
+        <div class="flow-arrow">
+          <div class="flow-arrow-line"><div class="flow-arrow-dot" style="animation-delay:0.6s"></div></div>
+          <div class="flow-arrow-label">+NN (mimo rozsahu)</div>
+        </div>
+        <div class="flow-node" style="opacity:0.4">
+          <div class="flow-node-icon">🤗</div>
+          <div class="flow-node-label">RL / Neural Net</div>
+          <div class="flow-node-sub">"Kladivo na komára"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 3: TEÓRIA ═════════════════════════════════════════════════════ -->
+<section class="section" id="teoria" data-slide="3">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">02 / Teória AI</div>
+      <h2 class="section-title">Symbolická vs. Štatistická AI</h2>
+      <p class="section-subtitle">Kľúčová myšlienka cvičenia: ExpectiMax s dobrou heuristikou JE umelá inteligencia.</p>
+    </div>
+
+    <div class="grid grid-2" id="theoriaCards">
+      <div class="card" style="transition-delay:0s">
+        <div class="card-icon">🏛️</div>
+        <div class="card-title">Symbolická AI (GOFAI)</div>
+        <div class="card-desc">Prohľadávanie stavového priestoru, expertné systémy, pravidlá — sem patrí náš ExpectiMax. Deterministická, interpretovateľná, bez potreby tréningových dát.</div>
+        <div class="tag-list">
+          <span class="tag">Minimax</span>
+          <span class="tag">ExpectiMax</span>
+          <span class="tag">Rule-based</span>
+          <span class="tag">MCTS</span>
+        </div>
+      </div>
+      <div class="card" style="transition-delay:0.1s">
+        <div class="card-icon cyan">📊</div>
+        <div class="card-title">Štatistická AI / ML</div>
+        <div class="card-desc">Vyžaduje DATA, tréning — neurónové siete, reinforcement learning. Pre 2048 je to „kladivo na komára" — overkill oproti elegancii ExpectiMaxu.</div>
+        <div class="tag-list">
+          <span class="tag cyan">Neural Net</span>
+          <span class="tag cyan">RL</span>
+          <span class="tag cyan">Deep Learning</span>
+          <span class="tag cyan">AlphaGo</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:2rem" class="animate">
+      <div class="section-tag" style="margin-bottom:1rem">Vrstvy algoritmov — od jednoduchého po komplexné</div>
+      <div class="arch-layers" id="archLayers">
+        <div class="arch-layer">
+          <div class="arch-layer-icon" style="background:linear-gradient(135deg,#374151,#6B7280)">🎲</div>
+          <div class="arch-layer-name">Random</div>
+          <div class="arch-badges">
+            <span class="arch-badge">Žiadna inteligencia</span>
+            <span class="arch-badge">Uniformné náhodné ťahy</span>
+            <span class="arch-badge gr">Avg: 1 143</span>
+            <span class="arch-badge">0% výhier</span>
+          </div>
+        </div>
+        <div class="arch-layer">
+          <div class="arch-layer-icon" style="background:linear-gradient(135deg,#1D4ED8,#3B82F6)">🧠</div>
+          <div class="arch-layer-name">Greedy Heuristic</div>
+          <div class="arch-badges">
+            <span class="arch-badge">1-ply eval funkcia</span>
+            <span class="arch-badge">Monotonicity + Smoothness</span>
+            <span class="arch-badge">Empty cells + Corner</span>
+            <span class="arch-badge cy">Avg: 7 225</span>
+          </div>
+        </div>
+        <div class="arch-layer" style="border-color:rgba(96,165,250,0.25)">
+          <div class="arch-layer-icon" style="background:linear-gradient(135deg,#0E7490,#06B6D4)">🔮</div>
+          <div class="arch-layer-name">ExpectiMax</div>
+          <div class="arch-badges">
+            <span class="arch-badge cy">Expectiminimax strom</span>
+            <span class="arch-badge cy">Max-nodes + Chance-nodes</span>
+            <span class="arch-badge cy">90% dlaždica 2, 10% dlaždica 4</span>
+            <span class="arch-badge gr">Avg: 17 990 · 63% výhier</span>
+          </div>
+        </div>
+        <div class="arch-layer" style="opacity:0.45; border-style: dashed;">
+          <div class="arch-layer-icon" style="background:linear-gradient(135deg,#4338CA,#818CF8)">🤗</div>
+          <div class="arch-layer-name">RL / Neural Net</div>
+          <div class="arch-badges">
+            <span class="arch-badge pu">State: 4×4 one-hot</span>
+            <span class="arch-badge pu">Action: 4 smery</span>
+            <span class="arch-badge pu">Reward: prázdne políčka?</span>
+            <span class="arch-badge">Mimo rozsahu cvičenia</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 4: IMPLEMENTÁCIA ══════════════════════════════════════════════ -->
+<section class="section" id="implementacia" data-slide="4">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">03 / Implementácia</div>
+      <h2 class="section-title">Kód a algoritmy</h2>
+      <p class="section-subtitle">ExpectiMax + zdieľaná eval funkcia s monotonicitou, smoothness, empty cells a corner bonusom.</p>
+    </div>
+
+    <div class="grid grid-2" style="align-items:start">
+      <div class="code-block" id="codeBlock1">
+        <div class="code-header">
+          <div class="code-dot" style="background:#FF5F56"></div>
+          <div class="code-dot" style="background:#FFBD2E"></div>
+          <div class="code-dot" style="background:#27C93F"></div>
+          <div class="code-title">evaluate() — eval funkcia heuristiky a ExpectiMaxu</div>
+        </div>
+        <div class="code-body"><span class="code-line"><span class="cm"># Zdieľaná eval funkcia pre oba solvery</span></span>
+<span class="code-line"><span class="kw">def</span> <span class="fn">evaluate</span>(<span class="var">grid</span>):</span>
+<span class="code-line">    <span class="var">mono</span>  = <span class="fn">eval_monotonicity</span>(<span class="var">grid</span>)</span>
+<span class="code-line">    <span class="var">smooth</span> = <span class="fn">eval_smoothness</span>(<span class="var">grid</span>)</span>
+<span class="code-line">    <span class="var">empty</span> = <span class="fn">eval_empty</span>(<span class="var">grid</span>)</span>
+<span class="code-line">    <span class="var">corner</span> = <span class="fn">eval_corner</span>(<span class="var">grid</span>)</span>
+<span class="code-line">    <span class="kw">return</span> (</span>
+<span class="code-line">        <span class="num">1.0</span>  * <span class="var">mono</span></span>
+<span class="code-line">      + <span class="num">0.1</span>  * <span class="var">smooth</span></span>
+<span class="code-line">      + <span class="num">2.7</span>  * <span class="var">empty</span></span>
+<span class="code-line">      + <span class="num">1.0</span>  * <span class="var">corner</span></span>
+<span class="code-line">    )</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="cm"># ExpectiMax — max node</span></span>
+<span class="code-line"><span class="kw">def</span> <span class="fn">expectimax</span>(<span class="var">grid</span>, <span class="var">depth</span>, <span class="var">is_max</span>):</span>
+<span class="code-line">    <span class="kw">if</span> <span class="var">depth</span> == <span class="num">0</span>: <span class="kw">return</span> <span class="fn">evaluate</span>(<span class="var">grid</span>)</span>
+<span class="code-line">    <span class="kw">if</span> <span class="var">is_max</span>:</span>
+<span class="code-line">        <span class="var">best</span> = <span class="num">-inf</span></span>
+<span class="code-line">        <span class="kw">for</span> <span class="var">move</span> <span class="kw">in</span> [<span class="str">'L'</span>,<span class="str">'R'</span>,<span class="str">'U'</span>,<span class="str">'D'</span>]:</span>
+<span class="code-line">            <span class="var">ng</span> = <span class="fn">apply_move</span>(<span class="var">grid</span>, <span class="var">move</span>)</span>
+<span class="code-line">            <span class="kw">if</span> <span class="fn">changed</span>(<span class="var">ng</span>, <span class="var">grid</span>):</span>
+<span class="code-line">                <span class="var">best</span> = <span class="fn">max</span>(<span class="var">best</span>,</span>
+<span class="code-line">                    <span class="fn">expectimax</span>(<span class="var">ng</span>,<span class="var">depth</span>-<span class="num">1</span>,<span class="num">False</span>))</span>
+<span class="code-line">        <span class="kw">return</span> <span class="var">best</span></span>
+<span class="code-line">    <span class="kw">else</span>: <span class="cm"># chance node</span></span>
+<span class="code-line">        <span class="var">val</span>, <span class="var">empty_cells</span> = <span class="num">0</span>, <span class="fn">get_empty</span>(<span class="var">grid</span>)</span>
+<span class="code-line">        <span class="kw">for</span> <span class="var">cell</span> <span class="kw">in</span> <span class="var">empty_cells</span>:</span>
+<span class="code-line">            <span class="kw">for</span> <span class="var">tile</span>,<span class="var">p</span> <span class="kw">in</span> [(<span class="num">2</span>,<span class="num">0.9</span>),(<span class="num">4</span>,<span class="num">0.1</span>)]:</span>
+<span class="code-line">                <span class="var">ng</span>[<span class="var">cell</span>] = <span class="var">tile</span></span>
+<span class="code-line">                <span class="var">val</span> += <span class="var">p</span> * <span class="fn">expectimax</span>(</span>
+<span class="code-line">                    <span class="var">ng</span>,<span class="var">depth</span>-<span class="num">1</span>,<span class="num">True</span>) / <span class="fn">len</span>(<span class="var">empty_cells</span>)</span>
+<span class="code-line">        <span class="kw">return</span> <span class="var">val</span></span></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1.25rem">
+        <!-- Pipeline: ExpectiMax rozhodnutie -->
+        <div class="card animate" id="pipelineCard" style="opacity:1">
+          <div class="card-title" style="margin-bottom:1rem;font-size:0.85rem;color:var(--text-soft);text-transform:uppercase;letter-spacing:0.08em">Vizualizácia — ExpectiMax tah</div>
+          <div class="pipeline" id="pipeline1">
+            <div class="pipe-step">
+              <div class="pipe-icon" style="background:linear-gradient(135deg,#1D4ED8,#3B82F6)">🎮</div>
+              <div>
+                <div class="pipe-title">Aktuálny stav hry</div>
+                <div class="pipe-data"><span class="pipe-tag">empty:</span> 4 políčka · <span class="pipe-tag">max:</span> 512</div>
+              </div>
+            </div>
+            <div class="pipe-connector"><div class="pipe-connector-fill"></div></div>
+            <div class="pipe-step">
+              <div class="pipe-icon" style="background:linear-gradient(135deg,#0E7490,#06B6D4)">🌳</div>
+              <div>
+                <div class="pipe-title">MAX node — skús 4 ťahy</div>
+                <div class="pipe-data"><span class="pipe-tag">depth:</span> 3 → <span class="pipe-tag">moves:</span> L,R,U,D</div>
+              </div>
+            </div>
+            <div class="pipe-connector"><div class="pipe-connector-fill"></div></div>
+            <div class="pipe-step">
+              <div class="pipe-icon" style="background:linear-gradient(135deg,#4338CA,#818CF8)">🎲</div>
+              <div>
+                <div class="pipe-title">CHANCE node — spawn dlaždice</div>
+                <div class="pipe-data"><span class="pipe-tag">tile 2:</span> 90% · <span class="pipe-tag">tile 4:</span> 10%</div>
+              </div>
+            </div>
+            <div class="pipe-connector"><div class="pipe-connector-fill"></div></div>
+            <div class="pipe-step">
+              <div class="pipe-icon" style="background:linear-gradient(135deg,#065F46,#34D399)">✅</div>
+              <div>
+                <div class="pipe-title" style="color:#34D399">Najlepší ťah vybraný</div>
+                <div class="pipe-data"><span class="pipe-tag">winner:</span> LEFT (score 4.82)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Eval components -->
+        <div class="card animate">
+          <div class="card-title" style="margin-bottom:1rem">Váhy eval funkcie</div>
+          <div class="progress-section" id="evalProgress">
+            <div class="progress-item">
+              <div class="progress-header"><span class="progress-label">Empty Cells (2.7×)</span><span class="progress-value">prázdne políčka</span></div>
+              <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-header"><span class="progress-label">Monotonicity (1.0×)</span><span class="progress-value">usporiadanosť</span></div>
+              <div class="progress-bar"><div class="progress-fill" data-width="60"></div></div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-header"><span class="progress-label">Corner Bonus (1.0×)</span><span class="progress-value">max dlaždica v rohu</span></div>
+              <div class="progress-bar"><div class="progress-fill" data-width="60"></div></div>
+            </div>
+            <div class="progress-item">
+              <div class="progress-header"><span class="progress-label">Smoothness (0.1×)</span><span class="progress-value">podobnosť susedov</span></div>
+              <div class="progress-bar"><div class="progress-fill" data-width="20"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Adaptive depth -->
+    <div class="grid grid-3" style="margin-top:1.5rem" id="adaptCards">
+      <div class="card" style="transition-delay:0s">
+        <div class="card-icon cyan">⚡</div>
+        <div class="card-title">Adaptive Depth</div>
+        <div class="card-desc">BASE_DEPTH=3 bežne, CRITICAL_DEPTH=4 keď ≤2 prázdnych políčok. Endgame dostane hlbšiu analýzu.</div>
+        <div class="tag-list"><span class="tag">depth=3 normal</span><span class="tag cyan">depth=4 endgame</span></div>
+      </div>
+      <div class="card" style="transition-delay:0.1s">
+        <div class="card-icon">🔀</div>
+        <div class="card-title">Seed Reset</div>
+        <div class="card-desc">Každý solver dostane seed=42 pred každou hrou. Zaisťuje fair porovnanie — rovnaké sekvencie náhodných spawnov.</div>
+        <div class="tag-list"><span class="tag">np.random.seed(42)</span><span class="tag">random.seed(42)</span></div>
+      </div>
+      <div class="card" style="transition-delay:0.2s">
+        <div class="card-icon green">🧪</div>
+        <div class="card-title">42 Unit Testov</div>
+        <div class="card-desc">Test suite pokrýva: pohyby, merging, spawn logiku, eval funkcie, corner detection, win/loss podmienky.</div>
+        <div class="tag-list"><span class="tag green">42/42 pass</span><span class="tag green">pytest</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 5: VÝSLEDKY ════════════════════════════════════════════════════ -->
+<section class="section" id="vysledky" data-slide="5">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">04 / Výsledky</div>
+      <h2 class="section-title">Štatistika 30 hier × 3 solvery</h2>
+      <p class="section-subtitle">Každý solver odohral 30 hier so seed reset pred každou. Výsledky z finálneho Behu č.3.</p>
+    </div>
+
+    <!-- Main results table -->
+    <div class="table-wrap animate" id="mainTable">
+      <div class="table-title">📊 Hlavná porovnávacia tabuľka — 30 hier per solver</div>
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Metrika</th>
+            <th>Random</th>
+            <th>Greedy Heuristic</th>
+            <th class="hl">ExpectiMax</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Priemerné skóre</td><td>1 143</td><td>7 225</td><td class="hl best">17 990</td></tr>
+          <tr><td>Najlepšie skóre</td><td>2 840</td><td>16 160</td><td class="hl best">38 596</td></tr>
+          <tr><td>Najhoršie skóre</td><td>356</td><td>1 612</td><td class="hl med">5 756</td></tr>
+          <tr><td>Win rate (2048)</td><td class="cross">0 %</td><td class="cross">0 %</td><td class="hl best">63 %</td></tr>
+          <tr><td>Výhry / 30 hier</td><td class="cross">0/30</td><td class="cross">0/30</td><td class="hl best">19/30</td></tr>
+          <tr><td>Priemerná max dlaždica</td><td>178</td><td>684</td><td class="hl best">1 820</td></tr>
+          <tr><td>Priemerný počet ťahov</td><td>~200</td><td>~490</td><td class="hl">~950</td></tr>
+          <tr><td>Čas na hru</td><td>&lt;0.1 s</td><td>~0.5 s</td><td class="hl">~25 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bar charts -->
+    <div class="grid grid-2" style="margin-top:2rem" id="barCharts">
+      <div class="card animate">
+        <div class="card-title" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem">
+          📈 Priemerné skóre per solver
+        </div>
+        <div class="h-bar-chart">
+          <div class="h-bar-item">
+            <div class="h-bar-label">ExpectiMax</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="100" style="background:linear-gradient(90deg,#1D4ED8,#06B6D4)"></div></div>
+            <div class="h-bar-value">17 990</div>
+          </div>
+          <div class="h-bar-item">
+            <div class="h-bar-label">Heuristic</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="40" style="background:linear-gradient(90deg,#1D4ED8,#60A5FA)"></div></div>
+            <div class="h-bar-value">7 225</div>
+          </div>
+          <div class="h-bar-item">
+            <div class="h-bar-label">Random</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="6" style="background:linear-gradient(90deg,#374151,#6B7280)"></div></div>
+            <div class="h-bar-value">1 143</div>
+          </div>
+        </div>
+      </div>
+      <div class="card animate">
+        <div class="card-title" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem">
+          🎯 Smery ťahov — ExpectiMax (avg % per hra)
+        </div>
+        <div class="h-bar-chart">
+          <div class="h-bar-item">
+            <div class="h-bar-label">LEFT ←</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="100" style="background:linear-gradient(90deg,#1D4ED8,#3B82F6)"></div></div>
+            <div class="h-bar-value">~38%</div>
+          </div>
+          <div class="h-bar-item">
+            <div class="h-bar-label">DOWN ↓</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="76" style="background:linear-gradient(90deg,#0E7490,#06B6D4)"></div></div>
+            <div class="h-bar-value">~29%</div>
+          </div>
+          <div class="h-bar-item">
+            <div class="h-bar-label">RIGHT →</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="52" style="background:linear-gradient(90deg,#4338CA,#818CF8)"></div></div>
+            <div class="h-bar-value">~20%</div>
+          </div>
+          <div class="h-bar-item">
+            <div class="h-bar-label">UP ↑</div>
+            <div class="h-bar-track"><div class="h-bar-fill" data-width="34" style="background:linear-gradient(90deg,#065F46,#34D399)"></div></div>
+            <div class="h-bar-value">~13%</div>
+          </div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.75rem">ExpectiMax preferuje pohyb doľava a dole — tlačí dlaždice do dolného ľavého rohu (corner strategy).</div>
+      </div>
+    </div>
+
+    <!-- Max tile distribution -->
+    <div class="table-wrap animate" style="margin-top:1.5rem">
+      <div class="table-title">🏅 Rozdelenie maximálnych dlaždíc (z 30 hier per solver)</div>
+      <table class="comparison-table">
+        <thead>
+          <tr><th>Max dlaždica</th><th>Random</th><th>Heuristic</th><th class="hl">ExpectiMax</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2048 ✨</td><td class="cross">0</td><td class="cross">0</td><td class="hl best">19</td></tr>
+          <tr><td>1024</td><td class="cross">0</td><td>8</td><td class="hl">9</td></tr>
+          <tr><td>512</td><td>1</td><td>15</td><td class="hl">2</td></tr>
+          <tr><td>256</td><td>12</td><td>7</td><td class="hl">0</td></tr>
+          <tr><td>128 a menej</td><td>17</td><td>0</td><td class="hl">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 6: GRAFY ══════════════════════════════════════════════════════ -->
+<section class="section" id="grafy" data-slide="6">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">05 / Vizualizácie</div>
+      <h2 class="section-title">Grafy a animácie</h2>
+      <p class="section-subtitle">Dashboard, distribúcie skóre, GIF replay hry pre každý solver.</p>
+    </div>
+
+    <div class="screenshot-container" id="sc1">
+      <div class="screenshot-bar">
+        <div class="sc-dot" style="background:#FF5F56"></div>
+        <div class="sc-dot" style="background:#FFBD2E"></div>
+        <div class="sc-dot" style="background:#27C93F"></div>
+        <div class="sc-title">dashboard.png — prehľad všetkých solverov naraz</div>
+      </div>
+      <div class="screenshot-body">
+        <img src="images/dashboard.png" alt="Dashboard" loading="lazy">
+      </div>
+      <div class="caption-pills">
+        <span class="pill">Avg skóre</span><span class="pill">Win rate</span>
+        <span class="pill">Max tile dist.</span><span class="pill">Move directions</span>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:1.5rem">
+      <div class="screenshot-container" id="sc2">
+        <div class="screenshot-bar">
+          <div class="sc-dot" style="background:#FF5F56"></div>
+          <div class="sc-dot" style="background:#FFBD2E"></div>
+          <div class="sc-dot" style="background:#27C93F"></div>
+          <div class="sc-title">score_distribution.png</div>
+        </div>
+        <div class="screenshot-body">
+          <img src="images/score_distribution.png" alt="Score distribution" loading="lazy">
+        </div>
+        <div class="caption-pills"><span class="pill">KDE</span><span class="pill">Distribúcia skóre</span></div>
+      </div>
+      <div class="screenshot-container" id="sc3">
+        <div class="screenshot-bar">
+          <div class="sc-dot" style="background:#FF5F56"></div>
+          <div class="sc-dot" style="background:#FFBD2E"></div>
+          <div class="sc-dot" style="background:#27C93F"></div>
+          <div class="sc-title">win_loss.png</div>
+        </div>
+        <div class="screenshot-body">
+          <img src="images/win_loss.png" alt="Win loss" loading="lazy">
+        </div>
+        <div class="caption-pills"><span class="pill">Win/Loss ratio</span><span class="pill">Per solver</span></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:1.25rem">
+      <div class="screenshot-container" id="sc4">
+        <div class="screenshot-bar">
+          <div class="sc-dot" style="background:#FF5F56"></div>
+          <div class="sc-dot" style="background:#FFBD2E"></div>
+          <div class="sc-dot" style="background:#27C93F"></div>
+          <div class="sc-title">max_tile_distribution.png</div>
+        </div>
+        <div class="screenshot-body">
+          <img src="images/max_tile_distribution.png" alt="Max tile distribution" loading="lazy">
+        </div>
+      </div>
+      <div class="screenshot-container" id="sc5">
+        <div class="screenshot-bar">
+          <div class="sc-dot" style="background:#FF5F56"></div>
+          <div class="sc-dot" style="background:#FFBD2E"></div>
+          <div class="sc-dot" style="background:#27C93F"></div>
+          <div class="sc-title">score_progression.png</div>
+        </div>
+        <div class="screenshot-body">
+          <img src="images/score_progression.png" alt="Score progression" loading="lazy">
+        </div>
+      </div>
+    </div>
+
+    <!-- GIF animácie -->
+    <div style="margin-top:2rem" class="animate">
+      <div class="section-tag" style="margin-bottom:1rem">GIF replay — vizualizácia hrania každého solvera</div>
+      <div class="grid grid-3" id="gifCards">
+        <div class="screenshot-container">
+          <div class="screenshot-bar">
+            <div class="sc-dot" style="background:#FF5F56"></div>
+            <div class="sc-dot" style="background:#FFBD2E"></div>
+            <div class="sc-dot" style="background:#27C93F"></div>
+            <div class="sc-title">replay_random.gif</div>
+          </div>
+          <div class="screenshot-body" style="padding:0.5rem;background:#0D1117;text-align:center">
+            <img src="images/replay_random.gif" alt="Random replay" style="max-height:220px;width:auto;margin:auto" loading="lazy">
+          </div>
+          <div class="caption-pills"><span class="pill">Random</span><span class="pill">Avg 1 143</span><span class="pill">0% wins</span></div>
+        </div>
+        <div class="screenshot-container">
+          <div class="screenshot-bar">
+            <div class="sc-dot" style="background:#FF5F56"></div>
+            <div class="sc-dot" style="background:#FFBD2E"></div>
+            <div class="sc-dot" style="background:#27C93F"></div>
+            <div class="sc-title">replay_heuristic.gif</div>
+          </div>
+          <div class="screenshot-body" style="padding:0.5rem;background:#0D1117;text-align:center">
+            <img src="images/replay_heuristic.gif" alt="Heuristic replay" style="max-height:220px;width:auto;margin:auto" loading="lazy">
+          </div>
+          <div class="caption-pills"><span class="pill">Heuristic</span><span class="pill">Avg 7 225</span><span class="pill">0% wins</span></div>
+        </div>
+        <div class="screenshot-container" style="border-color:rgba(96,165,250,0.25)">
+          <div class="screenshot-bar">
+            <div class="sc-dot" style="background:#FF5F56"></div>
+            <div class="sc-dot" style="background:#FFBD2E"></div>
+            <div class="sc-dot" style="background:#27C93F"></div>
+            <div class="sc-title">replay_expectimax.gif ⭐</div>
+          </div>
+          <div class="screenshot-body" style="padding:0.5rem;background:#0D1117;text-align:center">
+            <img src="images/replay_expectimax.gif" alt="ExpectiMax replay" style="max-height:220px;width:auto;margin:auto" loading="lazy">
+          </div>
+          <div class="caption-pills"><span class="pill" style="background:rgba(52,211,153,0.15);color:#34D399;border-color:rgba(52,211,153,0.3)">ExpectiMax</span><span class="pill">Avg 17 990</span><span class="pill" style="background:rgba(52,211,153,0.15);color:#34D399;border-color:rgba(52,211,153,0.3)">63% wins</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 7: ITERATÍVNY VÝVOJ ══════════════════════════════════════════ -->
+<section class="section" id="vyvoj" data-slide="7">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">06 / Iteratívny vývoj</div>
+      <h2 class="section-title">5 behov, 8 konfigurácií</h2>
+      <p class="section-subtitle">Vývoj od 0% heuristiky a 80% ExpectiMaxu v Behu č.1 po systematický tuning a finálny výsledok.</p>
+    </div>
+
+    <!-- Timeline -->
+    <div class="animate" style="margin-bottom:2.5rem">
+      <div class="section-tag" style="margin-bottom:1rem">Priebeh vývoja projektu</div>
+      <div class="timeline" id="projectTimeline">
+        <div class="timeline-track">
+          <div class="timeline-line"><div class="timeline-line-fill" id="timelineFill"></div></div>
+          <div class="timeline-nodes">
+            <div class="timeline-node" data-delay="0">
+              <div class="timeline-node-date">Beh č.1</div>
+              <div class="timeline-node-dot"></div>
+              <div class="timeline-node-label">Heuristic avg 2 193<br>ExpectiMax 24/30 (80%)</div>
+            </div>
+            <div class="timeline-node" data-delay="1">
+              <div class="timeline-node-date">Beh č.2</div>
+              <div class="timeline-node-dot"></div>
+              <div class="timeline-node-label">Greedy fix<br>17/30 (seed bug!)</div>
+            </div>
+            <div class="timeline-node" data-delay="2">
+              <div class="timeline-node-date">Beh č.3</div>
+              <div class="timeline-node-dot"></div>
+              <div class="timeline-node-label">Seed opravený<br>19/30 (63%)</div>
+            </div>
+            <div class="timeline-node" data-delay="3">
+              <div class="timeline-node-date">Tuning</div>
+              <div class="timeline-node-dot"></div>
+              <div class="timeline-node-label">8 konfigurácií<br>bl+depth4 víťaz</div>
+            </div>
+            <div class="timeline-node" data-delay="4">
+              <div class="timeline-node-date">Beh č.4 + 5</div>
+              <div class="timeline-node-dot"></div>
+              <div class="timeline-node-label">Eval split test<br>17/30 → revert na Beh č.3</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tuning table -->
+    <div class="table-wrap animate">
+      <div class="table-title">🔬 Systematický tuning — 8 konfigurácií × 5 hier (seed=42)</div>
+      <table class="comparison-table">
+        <thead>
+          <tr><th>Konfigurácia</th><th>Čo testuje</th><th>Avg skóre (5 hier)</th><th>Výhry / 5</th><th>Záver</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>baseline</td><td>Aktuálne váhy, depth=3</td><td>16 800</td><td class="med">3/5</td><td>Referencia</td></tr>
+          <tr><td>corner_bl</td><td>Bottom-left roh 1.5×</td><td>17 210</td><td class="med">3/5</td><td>Mierne +</td></tr>
+          <tr><td>snake</td><td>Snake weight matica</td><td>13 408</td><td class="cross">0/5</td><td>Najhorší</td></tr>
+          <tr><td>depth4@4</td><td>depth=4 pri ≤4 prázdnych</td><td>17 650</td><td class="med">3/5</td><td>Pomalší</td></tr>
+          <tr><td>depth4@2</td><td>depth=4 pri ≤2 (aktuálne)</td><td>16 800</td><td class="med">3/5</td><td>=baseline</td></tr>
+          <tr><td>mono+</td><td>MONO_W=1.5</td><td>15 900</td><td class="med">2/5</td><td>Horšie</td></tr>
+          <tr><td>empty+</td><td>EMPTY_W=3.5</td><td>17 100</td><td class="med">3/5</td><td>Mierne +</td></tr>
+          <tr class="hl"><td><strong>bl+depth4</strong></td><td>corner_bl + depth4@4</td><td class="best">18 853</td><td class="best">5/5</td><td><strong>VÍŤAZ</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:1.5rem" id="tuningCards">
+      <div class="card animate">
+        <div class="card-icon yellow">⚠️</div>
+        <div class="card-title">Problém malého vzorku</div>
+        <div class="card-desc">5-game tuning ukázal bl+depth4 ako 100% víťaza, ale 30-game test odhalil len marginálne zlepšenie (+1 výhra). Štatistická analýza: σ=1513, Δ≈500 → potrebných n≥70 hier pre spoľahlivé porovnanie.</div>
+        <div class="tag-list"><span class="tag yellow" style="background:rgba(251,191,36,0.12);color:#FBBF24;border-color:rgba(251,191,36,0.2)">σ = 1 513</span><span class="tag yellow" style="background:rgba(251,191,36,0.12);color:#FBBF24;border-color:rgba(251,191,36,0.2)">n ≥ 70 potrebné</span></div>
+      </div>
+      <div class="card animate">
+        <div class="card-icon green">✅</div>
+        <div class="card-title">Záver optimalizácie</div>
+        <div class="card-desc">Beh č.3 (Beh s opraveným seedom, threshold=2) je finálna konfigurácia. Ďalší tuning by priniesol len štatistický šum. Zvolená kombinácia MONO=1.0, SMOOTH=0.1, EMPTY=2.7, CORNER=1.0 je robustná.</div>
+        <div class="tag-list"><span class="tag green">Finálna konfig</span><span class="tag green">Žiadny overfit</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 8: VÝZVY ══════════════════════════════════════════════════════ -->
+<section class="section" id="vyzvy" data-slide="8">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">07 / Výzvy a objavenia</div>
+      <h2 class="section-title">Problémy z praxe</h2>
+      <p class="section-subtitle">Seed contamination bug, overfit corner váhy, nbclient asyncio — reálne debuggovanie AI projektu.</p>
+    </div>
+
+    <div class="lessons-grid" id="lessonsGrid">
+      <div class="lesson-card info">
+        <div class="lesson-label">Hlavný bug</div>
+        <div class="lesson-title">Seed Contamination</div>
+        <div class="lesson-desc">Nová greedy heuristika (~490 ťahov/hra) vs. stará (~200) konzumovala iný počet náhodných čísel — ExpectiMax dostal iné sekvencie spawnovania. Oprava: np.random.seed(42) pred každým solverom.</div>
+      </div>
+      <div class="lesson-card warn">
+        <div class="lesson-label">Overfit váha</div>
+        <div class="lesson-title">CORNER_W = 2.0 Hurt</div>
+        <div class="lesson-desc">Zdvojnásobenie corner bonusu (1.0 → 2.0) znížilo výhry z 24 na 20/30. Príliš silný corner tlak obmedzil flexibilitu v mid-game. Vrátili sme sa na 1.0.</div>
+      </div>
+      <div class="lesson-card danger">
+        <div class="lesson-label">Runtime bug</div>
+        <div class="lesson-title">nbclient asyncio uviazol</div>
+        <div class="lesson-desc">Jupyter nbclient zasekol na 0% CPU bez chybovej správy. Riešenie: exportovať kód z notebooku do standalone Python skriptu (/tmp/notebook_standalone.py) a spustiť priamo.</div>
+      </div>
+      <div class="lesson-card info">
+        <div class="lesson-label">Split eval test</div>
+        <div class="lesson-title">Oddelené eval funkcie</div>
+        <div class="lesson-desc">Beh č.5 testoval rozdielne eval funkcie pre Heuristic a ExpectiMax (corner_bl len pre EM). Výsledok: ExpectiMax drop na 17/30. Zdieľaná eval funkcia je lepšia — consistent heuristika.</div>
+      </div>
+      <div class="lesson-card warn">
+        <div class="lesson-label">Príliš pomalé</div>
+        <div class="lesson-title">CRITICAL_THRESHOLD = 4</div>
+        <div class="lesson-desc">Threshold=4 prázdnych políčok pre depth=4 spomalil hru 6× bez merateľného zlepšenia. Threshold=2 je správna voľba — depth-4 iba v skutočnom endgame.</div>
+      </div>
+      <div class="lesson-card">
+        <div class="lesson-label">Štatistika</div>
+        <div class="lesson-title">Malý vzorec klame</div>
+        <div class="lesson-desc">5-game tuning ukázal bl+depth4 ako "dokonalý" (5/5 wins). 30-game test: len 1 extra výhra oproti baseline. Na spoľahlivú štatistiku treba n≥70 hier (σ=1513).</div>
+      </div>
+    </div>
+
+    <!-- Progress bars: deliverables -->
+    <div class="card animate" style="margin-top:2rem">
+      <div class="card-title" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem">
+        ✅ Splnenie požiadaviek zadania
+      </div>
+      <div class="progress-section" id="deliverablesProgress">
+        <div class="progress-item">
+          <div class="progress-header"><span class="progress-label">3 solvery (Random, Heuristic, ExpectiMax)</span><span class="progress-value">100%</span></div>
+          <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="progress-header"><span class="progress-label">Štatistika 30 hier — Excel 5 listov</span><span class="progress-value">100%</span></div>
+          <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="progress-header"><span class="progress-label">GIF animácie replay</span><span class="progress-value">100%</span></div>
+          <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="progress-header"><span class="progress-label">PNG grafy (6 grafov)</span><span class="progress-value">100%</span></div>
+          <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="progress-header"><span class="progress-label">Report + Jupyter Notebook</span><span class="progress-value">100%</span></div>
+          <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+        </div>
+        <div class="progress-item">
+          <div class="progress-header"><span class="progress-label">42 Unit testov</span><span class="progress-value">100%</span></div>
+          <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SLIDE 9: ZÁVER ══════════════════════════════════════════════════════ -->
+<section class="section" id="zaver" data-slide="9">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="section-tag">08 / Záver a AI Readiness</div>
+      <h2 class="section-title">Čo sme sa naučili</h2>
+      <p class="section-subtitle">ExpectiMax je kanonická metóda pre 2048 — klasická symbolická AI je legitímna AI. Neurónová sieť by bola „kladivo na komára".</p>
+    </div>
+
+    <div class="grid grid-3" id="conclusionCards">
+      <div class="card" style="transition-delay:0s">
+        <div class="card-icon">🏛️</div>
+        <div class="card-title">Take-home message</div>
+        <div class="card-desc">Symbolická AI (GOFAI) — Minimax, ExpectiMax — je plnohodnotná umelá inteligencia. Mylná predstava: „ak to nemá miliardu parametrov a netrénuje sa na GPU, nie je to AI." Nesprávne.</div>
+        <div class="tag-list"><span class="tag">Symbolická AI</span><span class="tag">GOFAI</span><span class="tag">Legitímna AI</span></div>
+      </div>
+      <div class="card" style="transition-delay:0.1s">
+        <div class="card-icon cyan">🔨</div>
+        <div class="card-title">Kladivo na komára</div>
+        <div class="card-desc">Deep Learning pre 4×4 doskovú hru? Overkill. ExpectiMax dosiahol 63% win rate s ručne navrhnutou eval funkciou. Čas implementácie: 2 dni vs. dni/týždne tréningu RL siete.</div>
+        <div class="tag-list"><span class="tag cyan">Efektivita</span><span class="tag cyan">Správna mierka</span></div>
+      </div>
+      <div class="card" style="transition-delay:0.2s">
+        <div class="card-icon purple">🤖</div>
+        <div class="card-title">AI Readiness — keby sme museli RL</div>
+        <div class="card-desc">State: 4×4 matica, one-hot mocniny dvojky. Action: 4 diskrétne smery. Reward: počet prázdnych políčok (pozor na reward hacking!). AlphaGo princíp: MCTS + neurónka ako evaluátor.</div>
+        <div class="tag-list"><span class="tag purple">State: 4×4</span><span class="tag purple">Action: 4</span><span class="tag purple">Reward: ?</span></div>
+      </div>
+    </div>
+
+    <!-- Gen AI usage -->
+    <div class="card animate" style="margin-top:1.5rem">
+      <div class="card-icon yellow">✨</div>
+      <div class="card-title">Použitie Generatívnej AI (Claude Code)</div>
+      <div class="card-desc" style="line-height:1.8">
+        Celý projekt bol realizovaný s asistenciou Claude Code (Anthropic). AI slúžila ako:
+        <strong style="color:var(--text)"> debuggovací partner</strong> (seed contamination identifikovaný analýzou kódu),
+        <strong style="color:var(--text)"> iteratívny optimizer</strong> (návrh a porovnanie 8 konfigurácií),
+        <strong style="color:var(--text)"> dokumentátor</strong> (REPORT.md, EXPERIMENT_LOG.md, ZADANIE_KONTEXT.md).
+        Všetky rozhodnutia a výsledky sú autentické — AI nebola použitá na generovanie falošných výsledkov.
+      </div>
+      <div class="tag-list">
+        <span class="tag yellow" style="background:rgba(251,191,36,0.12);color:#FBBF24;border-color:rgba(251,191,36,0.2)">Claude Code</span>
+        <span class="tag yellow" style="background:rgba(251,191,36,0.12);color:#FBBF24;border-color:rgba(251,191,36,0.2)">Pair Programming</span>
+        <span class="tag yellow" style="background:rgba(251,191,36,0.12);color:#FBBF24;border-color:rgba(251,191,36,0.2)">Transparent AI usage</span>
+      </div>
+    </div>
+
+    <!-- Final card -->
+    <div class="final-card" id="finalCard">
+      <div class="final-icon">🏆</div>
+      <div class="final-title">63% Win Rate — ExpectiMax pre 2048</div>
+      <div class="final-sub">
+        Funkčná symbolická AI s eval funkciou (monotonicity + empty cells + corner), adaptive depth a
+        kompletnou dokumentáciou. Cieľ cvičenia bol splnený — aj bez neurónovej siete.
+      </div>
+      <div class="final-divider"></div>
+      <div class="final-stats">
+        <div style="text-align:center">
+          <div class="final-stat-val">17 990</div>
+          <div class="final-stat-lbl">Avg skóre</div>
+        </div>
+        <div style="text-align:center">
+          <div class="final-stat-val">63%</div>
+          <div class="final-stat-lbl">Win rate</div>
+        </div>
+        <div style="text-align:center">
+          <div class="final-stat-val">42/42</div>
+          <div class="final-stat-lbl">Unit testy</div>
+        </div>
+      </div>
+      <div class="final-badges">
+        <div class="final-badge">Tomáš Mucha</div>
+        <div class="final-badge">ZUI Cvičenie 2026</div>
+        <div class="final-badge">VŠB-TUO FEI</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+// ── PARTICLES ──────────────────────────────────────────────────────────────
+const pEl = document.getElementById('particles');
+const frag = document.createDocumentFragment();
+for (let i = 0; i < 55; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.left = Math.random() * 100 + '%';
+  p.style.top = Math.random() * 100 + '%';
+  p.style.animationDelay = -(Math.random() * 20) + 's';
+  p.style.setProperty('--px', (Math.random() * 120 - 40).toFixed(0) + 'px');
+  p.style.setProperty('--py', (-(Math.random() * 140 + 60)).toFixed(0) + 'px');
+  frag.appendChild(p);
+}
+pEl.appendChild(frag);
+
+// ── NAV SCROLL ─────────────────────────────────────────────────────────────
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 50);
+}, { passive: true });
+
+// ── ACTIVE NAV + SLIDE COUNTER ─────────────────────────────────────────────
+const sections = document.querySelectorAll('.section[data-slide]');
+const navLinks = document.querySelectorAll('.nav-link');
+const slideNum = document.getElementById('slideNum');
+const navObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      const n = e.target.dataset.slide;
+      navLinks.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector(`.nav-link[href="#${id}"]`);
+      if (a) a.classList.add('active');
+      slideNum.textContent = n.padStart(2,'0');
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(s => navObs.observe(s));
+
+// ── ANIMATED COUNTERS (hero) ───────────────────────────────────────────────
+const cObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('[data-count]').forEach(el => {
+      const target = parseInt(el.dataset.count);
+      let cur = 0;
+      const step = target / (1800 / 16);
+      const timer = setInterval(() => {
+        cur += step;
+        if (cur >= target) { el.textContent = target; clearInterval(timer); }
+        else { el.textContent = Math.floor(cur); }
+      }, 16);
+    });
+    cObs.unobserve(e.target);
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.hero-stats').forEach(el => cObs.observe(el));
+
+// ── SCROLL ANIMATIONS ──────────────────────────────────────────────────────
+const animObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.classList.add('visible');
+    // progress bars
+    e.target.querySelectorAll('.progress-fill[data-width]').forEach(f => {
+      f.style.width = f.dataset.width + '%';
+    });
+    // h-bar fills
+    e.target.querySelectorAll('.h-bar-fill[data-width]').forEach((b, i) => {
+      setTimeout(() => { b.style.width = b.dataset.width + '%'; }, i * 100);
+    });
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll('.animate, .table-wrap, .screenshot-container, .card, .stat-card, .lesson-card, .final-card').forEach(el => animObs.observe(el));
+
+// Staggered card reveal
+const gridObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.card, .lesson-card').forEach((c, i) => {
+      setTimeout(() => c.classList.add('visible'), i * 100);
+    });
+    gridObs.unobserve(e.target);
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.grid, .lessons-grid').forEach(el => gridObs.observe(el));
+
+// Stat cards stagger
+const statGridObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.stat-card').forEach((c, i) => {
+      setTimeout(() => c.classList.add('visible'), i * 100);
+    });
+    statGridObs.unobserve(e.target);
+  });
+}, { threshold: 0.2 });
+document.querySelectorAll('.stats-grid').forEach(el => statGridObs.observe(el));
+
+// ── ARCH LAYERS ────────────────────────────────────────────────────────────
+const archObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.arch-layer').forEach((l, i) => {
+      setTimeout(() => l.classList.add('visible'), i * 110);
+    });
+    archObs.unobserve(e.target);
+  });
+}, { threshold: 0.2 });
+const archEl = document.getElementById('archLayers');
+if (archEl) archObs.observe(archEl);
+
+// ── FLOW DIAGRAM ───────────────────────────────────────────────────────────
+const flowObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.flow-node').forEach((n, i) => {
+      setTimeout(() => n.classList.add('visible'), i * 150);
+    });
+    e.target.querySelectorAll('.flow-arrow').forEach((a, i) => {
+      setTimeout(() => a.classList.add('visible'), 100 + i * 150);
+    });
+    flowObs.unobserve(e.target);
+  });
+}, { threshold: 0.3 });
+const flowEl = document.getElementById('flowSolvers');
+if (flowEl) flowObs.observe(flowEl);
+
+// ── PIPELINE ───────────────────────────────────────────────────────────────
+const pipeObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.pipe-step').forEach((s, i) => {
+      setTimeout(() => s.classList.add('visible'), i * 450);
+    });
+    pipeObs.unobserve(e.target);
+  });
+}, { threshold: 0.3 });
+const pipeEl = document.getElementById('pipeline1');
+if (pipeEl) pipeObs.observe(pipeEl);
+
+// ── CODE BLOCK LINE REVEAL ─────────────────────────────────────────────────
+const codeObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.code-line').forEach((l, i) => {
+      setTimeout(() => l.classList.add('visible'), i * 60);
+    });
+    codeObs.unobserve(e.target);
+  });
+}, { threshold: 0.2 });
+const cb1 = document.getElementById('codeBlock1');
+if (cb1) codeObs.observe(cb1);
+
+// ── TIMELINE ───────────────────────────────────────────────────────────────
+const tlEl = document.getElementById('projectTimeline');
+if (tlEl) {
+  const tlObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const fill = document.getElementById('timelineFill');
+      setTimeout(() => { fill.style.width = '100%'; }, 200);
+      tlEl.querySelectorAll('.timeline-node').forEach((n, i) => {
+        setTimeout(() => n.classList.add('active'), 400 + i * 280);
+      });
+      tlObs.unobserve(e.target);
+    });
+  }, { threshold: 0.3 });
+  tlObs.observe(tlEl);
+}
+
+// ── EVAL PROGRESS BARS ─────────────────────────────────────────────────────
+const epObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    e.target.querySelectorAll('.progress-fill').forEach(f => {
+      f.style.width = f.dataset.width + '%';
+    });
+    epObs.unobserve(e.target);
+  });
+}, { threshold: 0.3 });
+const epEl = document.getElementById('evalProgress');
+if (epEl) epObs.observe(epEl);
+
+// Deliverables
+const dpEl = document.getElementById('deliverablesProgress');
+if (dpEl) epObs.observe(dpEl);
+
+// ── KEYBOARD NAV ───────────────────────────────────────────────────────────
+const allSections = Array.from(sections);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const cur = allSections.findIndex(s => {
+      const r = s.getBoundingClientRect();
+      return r.top >= -100 && r.top < window.innerHeight / 2;
+    });
+    const next = Math.min(cur + 1, allSections.length - 1);
+    allSections[next].scrollIntoView({ behavior: 'smooth' });
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const cur = allSections.findIndex(s => {
+      const r = s.getBoundingClientRect();
+      return r.top >= -100 && r.top < window.innerHeight / 2;
+    });
+    const prev = Math.max(cur - 1, 0);
+    allSections[prev].scrollIntoView({ behavior: 'smooth' });
+  }
+});
+
+// ── MOUSE PARALLAX ─────────────────────────────────────────────────────────
+let raf = false;
+document.addEventListener('mousemove', (e) => {
+  if (!raf) {
+    raf = true;
+    requestAnimationFrame(() => {
+      const mx = (e.clientX / window.innerWidth - 0.5) * 2;
+      const my = (e.clientY / window.innerHeight - 0.5) * 2;
+      pEl.style.transform = `translate3d(${mx*10}px,${my*10}px,0)`;
+      raf = false;
+    });
+  }
+});
+</script>
+</body>
+</html>
