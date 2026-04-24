@@ -295,8 +295,8 @@ print("Ulozene: images/confusion_matrix.png")
 """)
 
 code("""\
-# Graf porovnania accuracy
-fig, ax = plt.subplots(figsize=(8, 4))
+# Graf porovnania accuracy — Task 1 vs Task 2
+fig, ax = plt.subplots(figsize=(7, 4))
 fig.patch.set_facecolor('#07080F')
 ax.set_facecolor('#0C0E1A')
 
@@ -304,7 +304,7 @@ models = ['TF-IDF\\n+ LR', 'Embeddings\\n+ LR']
 accs   = [TASK1_ACC * 100, TASK2_ACC * 100]
 bar_colors = ['#4B8EF5', '#00CFC8']
 
-bars = ax.bar(models, accs, color=bar_colors, width=0.45, edgecolor='#1E293B')
+bars = ax.bar(models, accs, color=bar_colors, width=0.4, edgecolor='#1E293B')
 ax.set_ylim(min(accs) - 5, 100)
 ax.set_ylabel('Accuracy (%)', color='white', fontsize=11)
 ax.set_title('Task 1 vs Task 2 — Accuracy na test sade', color='white',
@@ -312,17 +312,15 @@ ax.set_title('Task 1 vs Task 2 — Accuracy na test sade', color='white',
 ax.tick_params(colors='white')
 for spine in ax.spines.values():
     spine.set_edgecolor('#1E293B')
-
 for bar, acc in zip(bars, accs):
     ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
             f'{acc:.2f} %', ha='center', va='bottom', color='white',
             fontweight='bold', fontsize=12)
-
 plt.tight_layout()
-plt.savefig(IMG_DIR / 'accuracy_comparison.png', dpi=150, bbox_inches='tight',
+plt.savefig(IMG_DIR / 'task1_vs_task2.png', dpi=150, bbox_inches='tight',
             facecolor='#07080F')
 plt.show()
-print("Ulozene: images/accuracy_comparison.png")
+print("Ulozene: images/task1_vs_task2.png")
 """)
 
 code("""\
@@ -507,7 +505,7 @@ for sample_i in [0, 5, 42]:
 """)
 
 code("""\
-# Finálne porovnanie všetkých 3 metód
+# Finálne porovnanie všetkých 3 metód — text
 print("="*55)
 print("FINÁLNE POROVNANIE — všetky metódy")
 print("="*55)
@@ -521,9 +519,37 @@ print(f"  {'─'*38} {'─'*9}  {'─'*30}")
 for name, acc, note in rows:
     print(f"  {name:<38} {acc*100:>8.2f} %  {note}")
 print()
-
 best = max(rows, key=lambda r: r[1])
 print(f"Najlepsia metoda: {best[0]}  ({best[1]*100:.2f} %)")
+""")
+
+code("""\
+# Finálne porovnanie — graf (všetky 3 metódy)
+fig, ax = plt.subplots(figsize=(9, 4))
+fig.patch.set_facecolor('#07080F')
+ax.set_facecolor('#0C0E1A')
+
+all_models = ['TF-IDF\\n+ LR', 'Embeddings\\n+ LR', f'FAISS k-NN\\n(k={K})']
+all_accs   = [TASK1_ACC*100, TASK2_ACC*100, TASK4_ACC*100]
+all_colors = ['#4B8EF5', '#00CFC8', '#A855F7']
+
+bars = ax.bar(all_models, all_accs, color=all_colors, width=0.45, edgecolor='#1E293B')
+ax.set_ylim(min(all_accs) - 5, 100)
+ax.set_ylabel('Accuracy (%)', color='white', fontsize=11)
+ax.set_title('Porovnanie metód — Accuracy na test sade', color='white',
+             fontsize=12, fontweight='bold')
+ax.tick_params(colors='white')
+for spine in ax.spines.values():
+    spine.set_edgecolor('#1E293B')
+for bar, acc in zip(bars, all_accs):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
+            f'{acc:.2f} %', ha='center', va='bottom', color='white',
+            fontweight='bold', fontsize=11)
+plt.tight_layout()
+plt.savefig(IMG_DIR / 'accuracy_comparison.png', dpi=150, bbox_inches='tight',
+            facecolor='#07080F')
+plt.show()
+print("Ulozene: images/accuracy_comparison.png")
 """)
 
 md("""### Diskusia — FAISS vs. Trénovaný model
