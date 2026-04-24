@@ -1,14 +1,29 @@
 # Implementácia a optimalizácia AI solverov pre hru 2048
 
-**Predmet:** Základy umelej inteligencie (ZUI)
-**Rok:** 2026
-**Prostredie:** Python 3.9 · NumPy · Jupyter Notebook
+---
+
+| | |
+|---|---|
+| **Predmet** | Základy umelej inteligencie (ZUI) |
+| **Autor** | Tomáš Mucha |
+| **Rok** | 2026 |
+| **Prostredie** | Python 3.9 · NumPy · Jupyter Notebook |
+| **Repozitár** | https://github.com/Kames003/ZUI |
+| **Prezentácia** | https://kames003.github.io/ZUI/ |
 
 ---
 
 ## Abstrakt
 
 Táto práca sa zaoberá implementáciou, analýzou a iteratívnou optimalizáciou troch AI solverov pre stochastickú doskú hru 2048. Implementovaný bol náhodný baseline solver, deterministický greedy heuristický solver a pokročilý ExpectiMax solver s adaptívnou hĺbkou prehľadávania. Solvery boli otestované v sérii piatich experimentálnych behov (celkovo 150 hier) s dôrazom na reprodukovateľnosť a férové porovnanie. ExpectiMax dosiahol 63 % mieru výhier (19/30 hier) s priemerným skóre 17 990, čo predstavuje 15,7-násobné zlepšenie oproti náhodnej baseline. Práca dokumentuje celý iteratívny vývojový cyklus vrátane identifikácie a opravy kritickej metodologickej chyby (kontaminácia náhodného seedu) a systematického tuningu 8 konfigurácií eval funkcie. Na záver je diskutovaná hranica manuálneho tunovania a perspektíva Machine Learning prístupov.
+
+### Kľúčové výsledky
+
+| Solver | Avg skóre | Win rate | Max tile |
+|---|---|---|---|
+| Random | 1 143 | 0 % | 256 |
+| Greedy Heuristic | 7 225 | 0 % | 1 024 |
+| **ExpectiMax** | **17 990** | **63 %** | **2 048** |
 
 ---
 
@@ -281,7 +296,7 @@ CORNER_W = 1.0   # corner bonus  — max tile v rohu
 
 ### 5.2 Kritická metodologická poznámka — Kontaminácia seedu
 
-> ⚠️ **Najdôležitejší metodologický problém projektu.**
+> **POZOR — Najdôležitejší metodologický problém projektu.**
 
 V pôvodnej implementácii bol `np.random.seed(42)` nastavený **raz** pre všetkých. Greedy heuristika hrá ~490 ťahov/hru oproti ~200 u pôvodnej → spotrebuje ~8 700 extra náhodných čísel → ExpectiMax dostáva inú sekvenciu hier.
 
@@ -386,7 +401,7 @@ Heuristic výrazne preferuje `left` a `up` — odráža snake-like stratégiu im
 ```
 Random:     std/avg = 623/1143   = 55 %  ← vysoká variabilita
 Heuristic:  std/avg = 4066/7225  = 56 %  ← vysoká variabilita
-ExpectiMax: std/avg = 1513/17990 =  8 %  ← nízka variabilita ✓
+ExpectiMax: std/avg = 1513/17990 =  8 %  ← nízka variabilita [OK]
 ```
 
 ExpectiMax je nielen najlepší ale aj **najkonzistentnejší** solver. Nízky koeficient variácie (8 %) znamená predvídateľný výkon — žiadne katastrofálne prehry pri nízkych skóre.
@@ -428,7 +443,7 @@ ExpectiMax je nielen najlepší ale aj **najkonzistentnejší** solver. Nízky k
 |-----|-------------|--------------|-----------------|-------|
 | **č.1** | pevná priorita, zdieľaný seed | 2 193 | 24/30 *(artefakt)* | baseline |
 | **č.2** | greedy eval, zdieľaný seed | 6 905 | 17/30 | greedy eval +229 % |
-| **č.3** ✅ | greedy eval, seed reset | **7 225** | **19/30 (63 %)** | férový seed |
+| **č.3** `FINAL` | greedy eval, seed reset | **7 225** | **19/30 (63 %)** | férový seed |
 | **č.4** | bl+depth4, threshold=4 | 6 116 | 20/30 (67 %) | corner_bl zhoršil heur. |
 | **č.5** | split eval + EMPTY_W=3.5 | 7 415 | 17/30 (57 %) | ExpectiMax poklesol |
 
@@ -454,9 +469,9 @@ Pre hľadanie optimálnych parametrov bol vytvorený skript `code/tune_expectima
 
 | # | Konfigurácia | Čo mení | Avg skóre | Výhry/5 | Win rate |
 |---|---|---|---|---|---|
-| 🥇 | **bl+depth4** | corner_bl + threshold=4 | **18 853** | **5/5** | **100 %** |
-| 🥈 | depth4@4 | threshold=4, any corner | 18 672 | 3/5 | 60 % |
-| 🥉 | empty+ | EMPTY_W=3.5 | 18 631 | 3/5 | 60 % |
+| **1.** | **bl+depth4** | corner_bl + threshold=4 | **18 853** | **5/5** | **100 %** |
+| 2. | depth4@4 | threshold=4, any corner | 18 672 | 3/5 | 60 % |
+| 3. | empty+ | EMPTY_W=3.5 | 18 631 | 3/5 | 60 % |
 | 4. | corner_bl | bottom-left preferovaný roh | 17 823 | 3/5 | 60 % |
 | 5. | mono+ | MONO_W=1.5 | 17 608 | 3/5 | 60 % |
 | 6. | depth4@2 | threshold=2 (aktuálne) | 17 595 | 2/5 | 40 % |
@@ -558,7 +573,7 @@ state = one_hot_encode(grid)  # shape: (4, 4, 17)
 | `r = score_delta` | Reward hacking — preferuje malé časté spoje |
 | `r = 1 if win else 0` | Príliš riedky signál, RL sa neučí |
 | `r = log₂(merged_tile)` | Dobré ale ignoruje priestor |
-| ✅ `r = 0.6·log₂(merge) + 0.4·empty` | Kompromis — odporúčané |
+| `r = 0.6·log₂(merge) + 0.4·empty` — **odporúčané** | Kompromis skóre + priestor |
 
 ### 9.2 AlphaGo princíp — Synergia klasiky a ML
 
@@ -671,4 +686,9 @@ OK — PASSED: 42 | FAILED: 0
 
 ---
 
-*Dátum: 2026-04-20 | Python 3.9 | seed=42 | 30 hier/solver*
+> **Záverečná poznámka**
+> ExpectiMax je kanonická metóda pre 2048 — klasická symbolická AI prekonáva intuitívny bias k neurónovým sieťam v praktickej hodnote. 63 % win rate za 8 hodín implementácie bez akéhokoľvek trénovania dokumentuje kľúčovú lekciu kurzu: správna mierka riešenia je rovnako dôležitá ako samotný algoritmus.
+
+---
+
+*Tomáš Mucha · ZUI 2026 · VŠB-TUO FEI · Python 3.9 · seed=42 · 30 hier/solver*
