@@ -113,6 +113,10 @@ slovnú zásobu — slová ako *"touchdown"*, *"quarterback"* jednoznačne signa
 *"processor"*, *"bandwidth"* signalizujú Sci/Tech. Bigramy ďalej zvyšujú presnosť
 (napr. *"stock market"*, *"world cup"*).
 
+![Top TF-IDF features per class](images/tfidf_top_features.png)
+
+Graf zobrazuje top 12 tokenov s najvyšším Logistic Regression koeficientom pre každú kategóriu. Sports a Sci/Tech majú najodlišnejšiu lexiku — odtiaľ ich vysoký F1-score.
+
 ---
 
 ## 3. Task 2 — Sémantické Embeddings
@@ -165,6 +169,12 @@ Klasifikačná správa:
 ```
 
 Embeddings prekonali TF-IDF o **+0.70 pp** — rozdiel je malý pretože AG News má lexikálne odlišné kategórie.
+
+### Vizualizácia embedding priestoru (t-SNE)
+
+![t-SNE projekcia embeddings](images/tsne_embeddings.png)
+
+t-SNE projekcia 2 000 vzoriek z 384-dimenzionálneho priestoru do 2D. Každý bod je jeden článok, farba = kategória. **Sports** (tyrkysová) a **Sci/Tech** (fialová) tvoria zreteľné zhluky — potvrdzuje lexikálnu odlišnosť. **World** a **Business** sa čiastočne prekrývajú — presne tie páry, kde model robí najväčšie chyby.
 
 ### Prečo embeddings nemusia vždy dramaticky prekonať TF-IDF?
 
