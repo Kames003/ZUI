@@ -140,7 +140,7 @@ Kľúčové vlastnosti:
 | Pamäť na 5k textov | ~15 MB | ~7 MB |
 | Sémantika | Nie | Áno |
 | Synonymy | "auto" ≠ "vozidlo" | "auto" ≈ "vozidlo" |
-| Čas encodovania | <1 s | ~5–15 min (CPU) |
+| Čas encodovania | <1 s | 32 s (CPU, 5k textov) |
 | Transfer learning | Nie | Áno |
 
 ### Výsledky
@@ -182,38 +182,38 @@ Embeddings ukážu výraznejší prínos pri:
 
 ### Confusion Matrix
 
-Grafy sú uložené v `images/confusion_matrix.png` a `images/f1_per_class.png`.
+![Confusion Matrix](images/confusion_matrix.png)
 
-Typický vzor chýb:
+Vzor chýb z matice zámen:
 
 ```
 Zámenné páry (zostupne podľa frekvencie):
   Business  ↔  Sci/Tech    (technologické firmy: financie aj produkt)
+  Sports    →  Business    (medzinárodné podujatia s ekonomickým kontextom)
   World     ↔  Business    (geopolitická ekonómia: sankcie, obchod)
-  Sports    →  World       (medzinárodné súťaže: OH, MS)
 ```
 
-Sports je najlepšie klasifikovaná kategória (F1 ~98 %) — má najodlišnejšiu slovnú zásobu.
+Sports je najlepšie klasifikovaná kategória (F1 = 96 %) — má najodlišnejšiu slovnú zásobu.
 
-### 2 konkrétne príklady chýb
+### F1-score per kategória
 
-Konkrétne príklady sú vypísané priamo v notebooku po spustení (bunka "ANALÝZA CHÝB").
-Tu je typický vzor:
+![F1 per class](images/f1_per_class.png)
 
-**Príklad 1 — Business vs. Sci/Tech:**
-> *"Apple shares rose 3% after unveiling the new MacBook Pro with M3 chip,
-> beating analyst expectations for Q3 earnings..."*
+### 2 konkrétne príklady chýb (reálne z behu seed=42)
 
-Model predikuje `Sci/Tech` namiesto `Business`. Dôvod: Embedding modelu
-dominuje technologický kontext firmy Apple a produktový termin "M3 chip".
-Finančný kontext ("shares", "earnings", "analyst") nie je dostatočne silný.
+**Príklad 1 — Business predikovaný ako Sci/Tech:**
+> *"HGS Picks Watkins as New Chief Executive — Human Genome Sciences Inc. plans to announce today that it has hired a 20-year product development veteran from Abbott Laboratories Inc. as chief executive..."*
 
-**Príklad 2 — World vs. Business:**
-> *"OPEC nations agreed to cut oil production by 1.5 million barrels per day,
-> sending crude prices to a 6-month high in global markets..."*
+Skutočná kategória: `Business` | Predikcia: `Sci/Tech`
 
-Model predikuje `World` namiesto `Business`. Dôvod: Geopolitický kontext
-("OPEC nations", "global") preváži nad ekonomickým ("prices", "markets").
+Dôvod: Termin *"Human Genome Sciences"* a kontext biotechnológií silne aktivuje Sci/Tech embeddings. Finančno-manažérsky kontext (CEO hire, company strategy) nestačí na preváhu.
+
+**Príklad 2 — Sports predikovaný ako Business:**
+> *"World awaits Chinese Grand Prix — A quarter of a billion dollars to build the track. Tens of millions in racing fees. More than 150,000 live spectators and a television audience of hundreds of millions..."*
+
+Skutočná kategória: `Sports` | Predikcia: `Business`
+
+Dôvod: Text je plný finančných čísel (*"billion dollars"*, *"racing fees"*, *"millions"*) — model reaguje na ekonomický kontext namiesto sportového.
 
 ### Záver analýzy
 
@@ -302,6 +302,8 @@ Kritické pre systémy kde sa kategórie dynamicky menia.
 ## 6. Záver a diskusia
 
 ### Súhrnné výsledky
+
+![Accuracy comparison](images/accuracy_comparison.png)
 
 | Metóda | Accuracy | Reprezentácia | Trénovanie |
 |---|---|---|---|
